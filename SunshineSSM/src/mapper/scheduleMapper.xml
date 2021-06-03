@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.wtbu.dao.ScheduleDao">
+	<select id="findScheduleByScheduleId"
+		parameterType="java.lang.Integer" resultType="java.util.HashMap">
+		select
+		s1.*,route.*,Aircraft.*
+		from schedule as s1
+		left join route on
+		s1.RouteId=route.RouteId
+		left join Aircraft on
+		Aircraft.AircraftId=s1.AircraftId
+		where scheduleId = #{scheduleId}
+	</select>
+	<select id="findTicketsByScheduleId"
+		parameterType="java.lang.Integer" resultType="java.util.HashMap">
+		SELECT ScheduleId,FlightReservation.CabintypeId, CabinType.CabinTypeName,count(*) AS Counts
+		FROM FlightReservation
+		left join cabintype on
+		cabintype.cabintypeId=FlightReservation.cabintypeId
+		where
+		ScheduleId=#{scheduleId} GROUP BY CabinTypeId
+	</select>
+	<select id="findSeatByScheduleId"
+		parameterType="java.lang.Integer" resultType="java.util.HashMap">
+		select
+		f.CabinTypeId,RowNumber,ColumnName,AircraftId from FlightReservation
+		as f
+		left join SeatLayout on SeatLayout.id=f.SeatLayoutId
+		where
+		ScheduleId=#{scheduleId}
+	</select>
+	<select id="findSeatByAircraftId"
+		parameterType="java.lang.Integer" resultType="java.util.HashMap">
+		select * from seatlayout
+		where AircraftId=#{aircraftId}
+	</select>
+
+
+	<select id="findSchedulesByCityAndDate"
+		parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		select ScheduleId,Date,DATE_ADD(date,INTERVAL (Route.flighttime)
+		MINUTE) as PreArrivalTime,Time,
+		schedule.FlightNumber,route.FlightTime
+		as FlightTime,departcity.CityCode as DepartCityCode,
+		departcity.CityName as DepartCityName,arriveairport.CityCode as
+		ArriveCityCode,
+		arrivecity.cityname as
+		ArriveCityName,EconomyPrice,FirstSeatsAmount,BusinessSeatsAmount,
+		EconomySeatsAmount,delay.DelayCount,delay.NotDelay,delay.AllCount
+		from
+		schedule left join route on schedule.RouteId=route.RouteId
+		LEFT JOIN airport as departairport on route.DepartureAirportIATA=departairport.IATACode
+		left join airport as arriveairport on route.ArrivalAirportIATA = arriveairport.IATACode
+		left join city as departcity on departcity.CityCode=departairport.CityCode
+		left join city as arrivecity on arrivecity.CityCode = arriveairport.CityCode
+		left join Aircraft on Aircraft.AircraftId=schedule.AircraftId
+		left join 
+		(
+			select
+			allFlight.FlightNumber as FlightNumber,
+			allFlight.allcount as
+			AllCount,delayFlight.delaycount as DelayCount
+			,(AllCount-DelayCount) as NotDelay 
+			from
+			(
+				select schedule.FlightNumber as FlightNumber,count(*) as AllCount 
+				from
+				schedule
+				where #{startDepartureDate} between schedule.date and date_add(schedule.date,INTERVAL 30 DAY)
+				group by FlightNumber 
+			) as allFlight 
+			left join 
+			(
+				select schedule.FlightNumber as FlightNumber, count(*) as DelayCount 
+				from
+				schedule left join route on route.routeid=schedule.routeid
+				left join flightstatus on flightstatus.scheduleId = schedule.scheduleid
+				where  #{startDepartureDate} between schedule.date and date_add(schedule.date,INTERVAL 30 DAY)
+				and (TIMEDIFF  <![CDATA[(DATE_ADD(schedule.Date,  INTERVAL (route.FlightTime+15) MINUTE),flightstatus.ActualArrivalTime)<0]]> or schedule.status != 'Confirmed')
+				group by schedule.FlightNumber
+			) as delayFlight on allFlight.FlightNumber=delayFlight.FlightNumber
+		) as delay on delay.FlightNumber = schedule.FlightNumber
+		where
+		departcity.cityname=#{fromCity} and arrivecity.cityname=#{toCity}
+		and
+		date between #{startDepartureDate} and #{endDepartureDate}
+	</select>
+	<select id="findResidueTickesByScheduleIdAndCabinType"
+		parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		SELECT count(*) AS Counts
+		FROM FlightReservation where
+		ScheduleId=#{scheduleId} and
+		cabintypeId=#{cabinType}
+	</select>
+	<select id="findOnestopSchedulesByCityAndDate"
+		parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		select s1.scheduleId as S1ScheduleId,s1.date as	S1Date,
+		DATE_ADD(s1.date,INTERVAL (route.flighttime) MINUTE) as S1PreArrivalTime,s1.time as S1Time,
+		s1.EconomyPrice as S1EconomyPrice,s1.flightnumber as S1FlightNumber,route.flighttime as S1FlightTime,
+		departcity.citycode as S1DepartCityCode,departcity.cityname as S1DepartCityName,
+		arriveairport.citycode as S1ArriveCityCode,	arrivecity.cityname as S1ArriveCityName,
+		Aircraft.FirstSeatsAmount as S1FirstSeatsAmount,Aircraft.BusinessSeatsAmount as S1BusinessSeatsAmount,
+		Aircraft.EconomySeatsAmount as S1EconomySeatsAmount,
+		s2.scheduleId as S2ScheduleId,s2.date as S2Date,s2.preArrivalTime as S2PreArrivalTime,s2.time as S2Time,
+		s2.EconomyPrice as S2EconomyPrice,s2.flightnumber as S2FlightNumber,s2.flighttime as S2FlightTime,
+		s2.departcitycode as S2DepartCityCode,s2.departcityname as S2DepartCityName,s2.arrivecitycode as S2ArriveCityCode,
+		s2.arrivecityname as S2ArriveCityName,s2.FirstSeatsAmount as S2FirstSeatsAmount,s2.BusinessSeatsAmount as S2BusinessSeatsAmount,
+		s2.EconomySeatsAmount as S2EconomySeatsAmount
+		from schedule as s1 left join route on s1.RouteId=route.RouteId
+		LEFT JOIN airport as departairport on route.DepartureAirportIATA=departairport.IATACode
+		left join airport as arriveairport on route.ArrivalAirportIATA = arriveairport.IATACode
+		left join city as departcity on departcity.citycode=departairport.citycode
+		left join city as arrivecity on arrivecity.citycode = arriveairport.citycode
+		left join Aircraft on Aircraft.AircraftId=s1.AircraftId
+		left join
+		(select
+		ScheduleId,Date,DATE_ADD(date,INTERVAL (route.flighttime) MINUTE) as PreArrivalTime,
+		Time,EconomyPrice,flightnumber,route.flighttime as FlightTime, departcity.citycode as DepartCityCode,
+		departcity.cityname as DepartCityName, arriveairport.citycode as ArriveCityCode,
+		arrivecity.cityname as ArriveCityName,FirstSeatsAmount,BusinessSeatsAmount,EconomySeatsAmount 
+		from schedule
+		left join route on schedule.RouteId=route.RouteId
+		LEFT JOIN airport as departairport on route.DepartureAirportIATA=departairport.IATACode
+		left join airport as arriveairport on route.ArrivalAirportIATA = arriveairport.IATACode
+		left join city as departcity on departcity.citycode=departairport.citycode
+		left join city as arrivecity on arrivecity.citycode = arriveairport.citycode
+		left join Aircraft on Aircraft.AircraftId=schedule.AircraftId
+		)as s2 on s2.departcityname=arrivecity.cityname
+		where
+		departcity.cityname=#{fromCity} and s2.arrivecityname=#{toCity}
+		and
+		s1.date between #{startDepartureDate} and #{endDepartureDate}
+		and
+		TIMEDIFF <![CDATA[(DATE_ADD(s1.date,INTERVAL (route.flighttime+120) MINUTE),s2.date) <0]]>
+		and TIMEDIFF(DATE_ADD(s1.date,INTERVAL (route.flighttime+540)
+		MINUTE),s2.date) >0
+
+	</select>
+	<select id="findFlightNumber" parameterType="java.util.HashMap"
+		resultType="java.util.HashMap">
+		select allFlight.FlightNumber as FlightNumber , allFlight.allcount as AllCount,
+		delayFlight.delaycount as DelayCount ,(AllCount-DelayCount) as NotDelay
+		from
+		(
+			select schedule.FlightNumber as FlightNumber,count(*) as AllCount
+			from schedule
+			where #{startDepartureDate} between schedule.date and date_add(schedule.date,INTERVAL 30 DAY)
+			group by FlightNumber 
+		) as allFlight
+		left join
+		(
+			select
+			schedule.FlightNumber as FlightNumber,
+			count(*) as DelayCount
+			from
+			schedule
+			left join route on route.routeid=schedule.routeid
+			left join
+			flightstatus on flightstatus.scheduleId = schedule.scheduleid
+			where
+			#{startDepartureDate} between schedule.date and date_add(schedule.date,INTERVAL 30 DAY)
+			and (TIMEDIFF <![CDATA[(DATE_ADD(schedule.date,INTERVAL (route.flighttime+15) MINUTE),flightstatus.ActualArrivalTime) <0]]>	or schedule.status != 'Confirmed')
+			group by schedule.FlightNumber
+		) as delayFlight 
+		on allFlight.FlightNumber=delayFlight.FlightNumber
+	</select>
+	
+	<select id="findScheduleByDate" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	select  s1.scheduleId as ScheduleId,
+				FlightNumber,
+				Gate,
+				Date,
+				Time,
+				EconomyPrice,
+				route.flighttime as FlightTime,
+				departcity.citycode as DepartCityCode,
+				departcity.cityname as DepartCityName,
+				arriveairport.citycode as ArriveCityCode,
+				arrivecity.cityname as ArriveCityName,
+				FlightStatus.ActualArrivalTime as ActualArrivalTime  
+				from schedule as s1
+				left join route on s1.RouteId=route.RouteId
+				LEFT JOIN airport as departairport on route.DepartureAirportIATA=departairport.IATACode 
+				left join airport as arriveairport on route.ArrivalAirportIATA = arriveairport.IATACode 
+				left join city as departcity on departcity.citycode=departairport.citycode 
+				left join city as arrivecity on arrivecity.citycode = arriveairport.citycode  left join
+				FlightStatus on FlightStatus.scheduleId=s1.scheduleId
+				where s1.date between #{startDepartureDate} and #{endDepartureDate}  limit #{startPage},#{pageSize}
+	</select>
+	
+	<select id="scheduleByDateCount" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+	select count(*) as Total 
+				from schedule as s1
+				left join route on s1.RouteId=route.RouteId 
+				LEFT JOIN airport as departairport on route.DepartureAirportIATA=departairport.IATACode 
+				left join airport as arriveairport on route.ArrivalAirportIATA = arriveairport.IATACode 
+				left join city as departcity on departcity.citycode=departairport.citycode 
+				left join city as arrivecity on arrivecity.citycode = arriveairport.citycode  left join 
+				FlightStatus on FlightStatus.scheduleId=s1.scheduleId 
+				where s1.date between #{startDepartureDate} and #{endDepartureDate};
+	</select>
+	
+	<select id="findScheduleByCityAndDate" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	select  s1.scheduleId as ScheduleId,
+				FlightNumber,
+				Gate,
+				Date,
+				Time,
+				EconomyPrice,
+				route.flighttime as FlightTime,
+				departcity.citycode as DepartCityCode,
+				departcity.cityname as DepartCityName,
+				arriveairport.citycode as ArriveCityCode,
+				arrivecity.cityname as ArriveCityName,
+				Name,
+				Status
+				from schedule as s1
+				left join route on s1.RouteId=route.RouteId
+				LEFT JOIN airport as departairport on route.DepartureAirportIATA=departairport.IATACode
+				left join airport as arriveairport on route.ArrivalAirportIATA = arriveairport.IATACode
+				left join city as departcity on departcity.citycode=departairport.citycode 
+				left join city as arrivecity on arrivecity.citycode = arriveairport.citycode
+				left join Aircraft on Aircraft.AircraftId=s1.AircraftId
+				where departcity.cityname=#{fromCity}
+				and arrivecity.cityname=#{toCity}
+				and (date between #{startDate} and #{endDate})
+	</select>
+	
+	<update id="updateSchedule" parameterType="java.util.HashMap">
+	update Schedule set status=#{status} where ScheduleId=#{scheduleId}
+	</update>
+</mapper>

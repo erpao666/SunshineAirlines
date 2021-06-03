@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="edu.wtbu.dao.UsersDao">
+	<select id="findEmailAndPassword" parameterType="HashMap"
+		resultType="HashMap">
+		select * from users where email=#{email} and
+		password=#{password}
+	</select>
+
+	<select id="findEmail" parameterType="String"
+		resultType="HashMap">
+		select * from users where email=#{email}
+	</select>
+
+	<insert id="addUser" parameterType="HashMap">
+		insert into
+		users(email,password,firstName,lastName,dateOfBirth,address,phone,photo,gender,roleId)
+		values(#{email},#{password},#{firstName},#{lastName},#{dateOfBirth},#{address},#{phone},#{photo},
+		#{gender},#{roleId})
+	</insert>
+
+	<select id="findUserListByPage" parameterType="HashMap"
+		resultType="HashMap">
+		select * from Users where (FirstName like
+		concat('%',#{name},'%') or LastName like concat('%',#{name},'%'))
+		Limit #{startPage},#{pageSize}
+	</select>
+
+	<select id="findUserListCountByPage" parameterType="HashMap"
+		resultType="Integer">
+		select count(*) from Users where (FirstName like
+		concat('%',#{name},'%') or LastName like concat('%',#{name},'%'))
+	</select>
+
+	<select id="findUserListByPageAndRoleId" parameterType="HashMap"
+		resultType="HashMap">
+		select * from Users where roleId = #{roleId} and (FirstName
+		like concat('%',#{name},'%') or LastName like concat('%',#{name},'%'))
+		Limit #{startPage},#{pageSize}
+	</select>
+
+	<select id="findUserListCountByPageAndRoleId"
+		parameterType="HashMap" resultType="Integer">
+		select count(*) from Users where
+		roleId = #{roleId} and (FirstName like concat('%',#{name},'%') or
+		LastName like concat('%',#{name},'%'))
+	</select>
+
+	<update id="updateUser" parameterType="java.util.HashMap">
+		update users set
+		email=#{email},password=#{password},firstName=#{firstName},lastName=#{lastName},
+		gender=#{gender},dateOfBirth=#{dateOfBirth},phone=#{phone},photo=#{photo},address=#{address},
+		roleId=#{roleId} where userId=#{userId}
+	</update>
+
+	<select id="findByUserId" parameterType="java.lang.Integer"
+		resultType="java.util.HashMap">
+		select * from users where userId=#{userId}
+	</select>
+
+	<select id="findByEmailAndUserId"
+		parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		select * from users where
+		email=#{email} and userId &lt;&gt; #{userId}
+	</select>
+
+</mapper>
